@@ -1,13 +1,17 @@
-SELECT COUNT(*) AS payment_count
-FROM (
-    SELECT
-        transaction_id,
-        transaction_timestamp,
-        LAG(transaction_timestamp) OVER (
-            PARTITION BY merchant_id, credit_card_id, amount
-            ORDER BY transaction_timestamp
-        ) AS prev_transaction_time
-    FROM transactions
-) t
-WHERE prev_transaction_time IS NOT NULL
-  AND transaction_timestamp - prev_transaction_time <= INTERVAL '10 minutes';
+WITH customer_totals AS (
+    SELECT customer_id,SUM(total_purchase_value) AS total_purchase_value
+    FROM customer_purchase
+    GROUP BY customer_id
+),
+ranked_customers AS (
+    SELECT customer_id, total_purchase_value,
+        DENSE_RANK() OVER (ORDER BY total_purchase_value DESC) AS rank
+    FROM customer_totals
+)
+SELECT
+    customer_id,
+    total_purchase_value,
+    rank
+FROM ranked_customers
+WHERE rank <= 5
+ORDER BY rank, customer_id;
